@@ -1,0 +1,11 @@
+# Vim swap files
+.*.sw?
+
+# Build directory
+build/
+
+# Datasets and other data files
+data/
+
+# Dear ImGui persistent state
+imgui.ini
