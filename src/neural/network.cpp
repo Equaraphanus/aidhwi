@@ -34,11 +34,11 @@ void Network::Randomize(std::uint64_t seed) {
     for (auto& layer : m_weights)
         for (auto& neuron : layer)
             for (auto& weight : neuron)
-                weight = rng.NextFloat<double>();
+                weight = rng.NextFloat<double>(-1, 1);
     // Randomize biases
     for (auto& layer : m_biases)
         for (auto& bias : layer)
-            bias = rng.NextFloat<double>();
+            bias = rng.NextFloat<double>(-1, 1);
 }
 
 void Network::Randomize() {
