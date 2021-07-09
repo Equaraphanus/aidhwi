@@ -48,6 +48,11 @@ include_directories(
 	src
 )
 
+add_library(neural
+    src/neural/network.cpp
+)
+set_flags(neural)
+
 add_executable(${PROJECT_NAME}
 	src/main.cpp
 	src/application.cpp
@@ -60,6 +65,7 @@ target_link_libraries(${PROJECT_NAME}
     glad
     glm
     imgui
+    neural
 )
 
 set_flags(${PROJECT_NAME})
