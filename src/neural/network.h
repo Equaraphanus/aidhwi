@@ -1,8 +1,8 @@
 #pragma once
 
 #include <cstdint>
-#include <vector>
 #include <initializer_list>
+#include <vector>
 
 namespace Neural {
 
@@ -16,6 +16,11 @@ public:
     void Randomize();
 
     std::vector<double> ComputeOutput(const std::vector<double>&) const;
+
+    inline const auto& GetWeights() const { return m_weights; }
+    inline const auto& GetBiases() const { return m_biases; }
+
+    inline size_t GetMaxLayerSize() const { return m_max_layer_size; }
 
 private:
     std::vector<std::vector<std::vector<double>>> m_weights;
