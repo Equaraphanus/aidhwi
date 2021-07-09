@@ -7,6 +7,9 @@
 #include <glad/glad.h>
 #include <imgui.h>
 
+#include "inspector.h"
+#include "neural/network.h"
+
 Application::Application() : m_running(false) {}
 
 Application::~Application() {
@@ -83,6 +86,10 @@ bool Application::Init() {
     colors[ImGuiCol_FrameBg] = ImVec4(0.43f, 0.43f, 0.43f, 0.39f);
     colors[ImGuiCol_CheckMark] = ImVec4(0.34f, 0.98f, 0.26f, 1.00f);
 
+    m_network = std::make_shared<Neural::Network>(3, std::vector<size_t>{5, 1});
+    m_network->Randomize(1337);
+    std::cerr << m_network->ComputeOutput({0.25, 0.5, 0.75})[0] << std::endl;
+
     return true;
 }
 
@@ -134,6 +141,15 @@ void Application::Render() {
 
     // ImGUI
     ImGui::ShowDemoWindow();
+
+    ImGui::Begin("Inspector");
+    if (ImGui::CollapsingHeader("Neural network")) {
+        Inspector::ShowProperty(*m_network);
+        if (ImGui::Button("Randomize")) {
+            m_network->Randomize();
+        }
+    }
+    ImGui::End();
 
     ImGui::Render();
     SDL_GL_MakeCurrent(m_window, m_context);
