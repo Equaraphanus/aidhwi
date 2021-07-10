@@ -12,7 +12,7 @@ An attempt to recreate a handwriting recognition input method from scratch in C+
 
 ## Dependencies
 Front-end:
-- [SDL2](https://libsdl.org/) -- Input and display abstraction
-- [GLAD](https://glad.dav1d.de/) -- GL loader
-- [Dear ImGui](https://github.com/ocornut/imgui) -- Immediate mode GUI library
-- [GLM](https://github.com/g-truc/glm) -- GL math
+- [SDL2](https://libsdl.org/) &mdash; Input and display abstraction
+- [GLAD](https://glad.dav1d.de/) &mdash; GL loader
+- [Dear ImGui](https://github.com/ocornut/imgui) &mdash; Immediate mode GUI library
+- [GLM](https://github.com/g-truc/glm) &mdash; GL math
