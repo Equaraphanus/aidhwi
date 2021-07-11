@@ -22,6 +22,7 @@ private:
     SDL_GLContext m_context;
     bool m_running;
     std::unique_ptr<Neural::Network> m_network;
+    std::vector<double> m_network_inputs;
 
     Event<int, int> m_resized;
 
