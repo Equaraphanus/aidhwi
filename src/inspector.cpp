@@ -155,32 +155,34 @@ static void DrawNetworkLayers(const Neural::Network& ann) {
         const auto& layer_weights = weights[layer_index];
         const auto& layer_biases = biases[layer_index];
 
+        ImGui::BeginTable("Values", layer_weights.front().size() + 2, ImGuiTableFlags_RowBg);
+        ImGui::TableSetupColumn("Neuron");
+        for (size_t weight_index = 0; weight_index != layer_weights.front().size(); ++weight_index) {
+            char name_buffer[32];
+            sprintf_s(name_buffer, "Weight %llu", weight_index);
+            ImGui::TableSetupColumn(name_buffer);
+        }
+        ImGui::TableSetupColumn("Bias");
+        ImGui::TableHeadersRow();
+
         for (size_t neuron_index = 0; neuron_index != layer_weights.size(); ++neuron_index) {
-            if (!ImGui::TreeNode((void*)(intptr_t)neuron_index, "Neuron %llu", neuron_index))
-                continue;
-
-            ImGui::BeginTable("Values", 2, ImGuiTableFlags_RowBg);
-
             const auto& neuron_weights = layer_weights[neuron_index];
+
+            int column = 0;
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(column);
+            ImGui::Text("%llu", neuron_index);
+
             for (size_t input_index = 0; input_index != neuron_weights.size(); ++input_index) {
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-                ImGui::Text("Weight %llu", input_index);
-                ImGui::TableSetColumnIndex(1);
+                ImGui::TableSetColumnIndex(++column);
                 ImGui::Text("%f", neuron_weights[input_index]);
             }
 
-            ImGui::TableNextRow();
-            ImGui::TableSetColumnIndex(0);
-            ImGui::Text("Bias");
-            ImGui::TableSetColumnIndex(1);
+            ImGui::TableSetColumnIndex(++column);
             ImGui::Text("%f", layer_biases[neuron_index]);
-
-            ImGui::EndTable();
-
-            ImGui::TreePop();
         }
 
+        ImGui::EndTable();
         ImGui::TreePop();
     }
 }
