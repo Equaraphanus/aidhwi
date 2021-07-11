@@ -21,7 +21,7 @@ private:
     SDL_Window* m_window;
     SDL_GLContext m_context;
     bool m_running;
-    std::shared_ptr<Neural::Network> m_network;
+    std::unique_ptr<Neural::Network> m_network;
 
     Event<int, int> m_resized;
 

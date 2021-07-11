@@ -86,7 +86,7 @@ bool Application::Init() {
     colors[ImGuiCol_FrameBg] = ImVec4(0.43f, 0.43f, 0.43f, 0.39f);
     colors[ImGuiCol_CheckMark] = ImVec4(0.34f, 0.98f, 0.26f, 1.00f);
 
-    m_network = std::make_shared<Neural::Network>(3, std::vector<size_t>{5, 1});
+    m_network = std::make_unique<Neural::Network>(3, std::vector<size_t>{5, 1});
     m_network->Randomize(1337);
     std::cerr << m_network->ComputeOutput({0.25, 0.5, 0.75})[0] << std::endl;
 
