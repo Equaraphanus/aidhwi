@@ -45,6 +45,28 @@ void Network::Randomize() {
     Randomize(std::time(nullptr));
 }
 
+void Network::ComputeOutputForLayer(size_t layer_index, const std::vector<double>& inputs, std::vector<double>& outputs) const {
+    assert(m_weights.size() == m_biases.size());
+    assert(layer_index < m_weights.size());
+
+    const auto& layer_weights = m_weights[layer_index];
+    const auto& layer_biases = m_biases[layer_index];
+
+    assert(inputs.size() >= layer_weights.front().size());
+    assert(outputs.size() >= layer_weights.size());
+
+    for (size_t neuron_index = 0; neuron_index != layer_weights.size(); ++neuron_index) {
+        const auto& neuron_weights = layer_weights[neuron_index];
+        auto& neuron_output = outputs[neuron_index];
+
+        neuron_output = 0;
+        for (size_t input_index = 0; input_index != neuron_weights.size(); ++input_index)
+            neuron_output += inputs[input_index] * neuron_weights[input_index];
+        neuron_output += layer_biases[neuron_index];
+        neuron_output = ActivationFunction(neuron_output);
+    }
+}
+
 std::vector<double> Network::ComputeOutput(const std::vector<double>& inputs) const {
     assert(m_weights.size() > 0);
     assert(m_weights.size() == m_biases.size());
@@ -56,20 +78,7 @@ std::vector<double> Network::ComputeOutput(const std::vector<double>& inputs) co
     std::vector<double> output_buffer(m_max_layer_size);
 
     for (size_t layer_index = 0; layer_index != m_weights.size(); ++layer_index) {
-        const auto& layer_weights = m_weights[layer_index];
-        const auto& layer_biases = m_biases[layer_index];
-
-        for (size_t neuron_index = 0; neuron_index != layer_weights.size(); ++neuron_index) {
-            const auto& neuron_weights = layer_weights[neuron_index];
-            auto& neuron_output = output_buffer[neuron_index];
-
-            neuron_output = 0;
-            for (size_t input_index = 0; input_index != neuron_weights.size(); ++input_index)
-                neuron_output += input_buffer[input_index] * neuron_weights[input_index];
-            neuron_output += layer_biases[neuron_index];
-            neuron_output = ActivationFunction(neuron_output);
-        }
-
+        ComputeOutputForLayer(layer_index, input_buffer, output_buffer);
         // The outputs of this layer will become the inputs for the next one.
         output_buffer.swap(input_buffer);
     }

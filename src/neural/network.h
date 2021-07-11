@@ -15,6 +15,8 @@ public:
     // Randomize using current time as a seed.
     void Randomize();
 
+    void ComputeOutputForLayer(size_t, const std::vector<double>&, std::vector<double>&) const;
+
     std::vector<double> ComputeOutput(const std::vector<double>&) const;
 
     inline const auto& GetWeights() const { return m_weights; }
