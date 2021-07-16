@@ -32,7 +32,6 @@ private:
     size_t m_max_layer_size;
 
     static double ActivationFunction(double);
-    static double ActivationDerivative(double);
     static double ActivationDerivativeFromValue(double);
 };
 

@@ -144,10 +144,6 @@ double Network::ActivationFunction(double x) {
     return 0.5 * (std::tanh(x) + 1);
 }
 
-double Network::ActivationDerivative(double x) {
-    return 1.0 / (std::cosh(2 * x) - 1);
-}
-
 double Network::ActivationDerivativeFromValue(double y) {
     return 2.0 * y * (1.0 - y);
 }
