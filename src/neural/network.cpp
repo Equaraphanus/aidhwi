@@ -46,7 +46,8 @@ void Network::Randomize() {
     Randomize(std::time(nullptr));
 }
 
-void Network::ComputeOutputForLayer(size_t layer_index, const std::vector<double>& inputs, std::vector<double>& outputs) const {
+void Network::ComputeOutputForLayer(size_t layer_index, const std::vector<double>& inputs,
+                                    std::vector<double>& outputs) const {
     assert(m_weights.size() == m_biases.size());
     assert(layer_index < m_weights.size());
 
