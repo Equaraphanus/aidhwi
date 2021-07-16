@@ -19,6 +19,8 @@ public:
 
     std::vector<double> ComputeOutput(const std::vector<double>&) const;
 
+    void Learn(const std::vector<double>&, const std::vector<double>&, double);
+
     inline const auto& GetWeights() const { return m_weights; }
     inline const auto& GetBiases() const { return m_biases; }
 
@@ -31,6 +33,7 @@ private:
 
     static double ActivationFunction(double);
     static double ActivationDerivative(double);
+    static double ActivationDerivativeFromValue(double);
 };
 
 } // namespace Neural

@@ -1,5 +1,6 @@
 #include "network.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstdint>
@@ -89,6 +90,55 @@ std::vector<double> Network::ComputeOutput(const std::vector<double>& inputs) co
     return input_buffer;
 }
 
+void Network::Learn(const std::vector<double>& inputs, const std::vector<double>& target_outputs, double rate) {
+    assert(rate > 0.0 && rate <= 1.0);
+    assert(m_weights.size() > 0);
+    assert(m_weights.size() == m_biases.size());
+    assert(inputs.size() == m_weights.front().front().size());
+    assert(target_outputs.size() == m_weights.back().size());
+
+    // Perform the forward propagation pass and remember all the outputs.
+    std::vector<std::vector<double>> outputs(m_weights.size());
+    const auto* input_buffer = &inputs;
+    for (size_t layer_index = 0; layer_index != m_weights.size(); ++layer_index) {
+        auto& output_buffer = outputs[layer_index];
+        output_buffer.resize(m_weights[layer_index].size());
+        ComputeOutputForLayer(layer_index, *input_buffer, output_buffer);
+        input_buffer = &output_buffer;
+    }
+
+    std::vector<double> error_buffer(m_max_layer_size);
+    std::vector<double> next_error_buffer(m_max_layer_size);
+
+    for (size_t output_index = 0; output_index != target_outputs.size(); ++output_index)
+        error_buffer[output_index] = target_outputs[output_index] - outputs.back()[output_index];
+
+    // Perform the backwards propagation pass and correct the weights according to the amount of error for each neuron.
+    // The error values for the next layer are calculated on the fly.
+    for (size_t layer_index = m_weights.size(); layer_index-- != 0;) {
+        input_buffer = layer_index != 0 ? &outputs[layer_index - 1] : &inputs;
+        auto& layer_weights = m_weights[layer_index];
+        auto& layer_biases = m_biases[layer_index];
+        const auto& layer_outputs = outputs[layer_index];
+        std::fill_n(next_error_buffer.begin(), layer_weights.front().size(), 0);
+        for (size_t output_index = 0; output_index != layer_weights.size(); ++output_index) {
+            auto& output_weights = layer_weights[output_index];
+            const auto& output_derivative = ActivationDerivativeFromValue(layer_outputs[output_index]);
+            double error_value = error_buffer[output_index];
+            for (size_t weight_index = 0; weight_index != output_weights.size(); ++weight_index) {
+                auto& weight = output_weights[weight_index];
+                // Contribute to the error value of each input before changing the weight.
+                next_error_buffer[weight_index] += weight * error_value;
+                // Correct the weight.
+                weight += rate * error_value * output_derivative * input_buffer->at(weight_index);
+            }
+            // Bias is a special case as it does not contribute to any error value.
+            layer_biases[output_index] += rate * error_value * output_derivative;
+        }
+        error_buffer.swap(next_error_buffer);
+    }
+}
+
 double Network::ActivationFunction(double x) {
     // Displaced tanh seems to be pretty fast and relatively easy to differentiate.
     return 0.5 * (std::tanh(x) + 1);
@@ -96,6 +146,10 @@ double Network::ActivationFunction(double x) {
 
 double Network::ActivationDerivative(double x) {
     return 1.0 / (std::cosh(2 * x) - 1);
+}
+
+double Network::ActivationDerivativeFromValue(double y) {
+    return 2.0 * y * (1.0 - y);
 }
 
 } // namespace Neural
