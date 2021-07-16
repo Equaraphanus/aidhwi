@@ -173,13 +173,18 @@ static void DrawNetworkLayers(const Neural::Network& ann) {
             ImGui::TableSetColumnIndex(column);
             ImGui::Text("%llu", neuron_index);
 
+            ImVec4 color;
+            color.w = 1;
+
             for (size_t input_index = 0; input_index != neuron_weights.size(); ++input_index) {
                 ImGui::TableSetColumnIndex(++column);
-                ImGui::Text("%f", neuron_weights[input_index]);
+                ImGui::ColorConvertHSVtoRGB(0.17 * (std::tanh(neuron_weights[input_index]) + 1), 1.0f, 1.0f, color.x, color.y, color.z);
+                ImGui::TextColored(color, "%f", neuron_weights[input_index]);
             }
 
             ImGui::TableSetColumnIndex(++column);
-            ImGui::Text("%f", layer_biases[neuron_index]);
+            ImGui::ColorConvertHSVtoRGB(0.17 * (std::tanh(layer_biases[neuron_index]) + 1), 1.0f, 1.0f, color.x, color.y, color.z);
+            ImGui::TextColored(color, "%f", layer_biases[neuron_index]);
         }
 
         ImGui::EndTable();
