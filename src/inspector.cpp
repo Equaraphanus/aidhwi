@@ -5,7 +5,9 @@
 #include <string>
 #include <vector>
 
-#include "imgui.h"
+#include <imgui.h>
+#include <imgui_internal.h>
+
 #include "neural/network.h"
 
 namespace Inspector {
@@ -154,40 +156,79 @@ static void DrawNetworkLayers(const Neural::Network& ann) {
 
         const auto& layer_weights = weights[layer_index];
         const auto& layer_biases = biases[layer_index];
+        char name_buffer[48];
 
-        ImGui::BeginTable("Values", layer_weights.front().size() + 2, ImGuiTableFlags_RowBg);
-        ImGui::TableSetupColumn("Neuron");
-        for (size_t weight_index = 0; weight_index != layer_weights.front().size(); ++weight_index) {
-            char name_buffer[32];
-            sprintf_s(name_buffer, "Weight %llu", weight_index);
-            ImGui::TableSetupColumn(name_buffer);
+        const float column_width = ImGui::GetFontSize() * 5;
+
+        ImGui::SetNextWindowContentSize(ImVec2(column_width * (layer_weights.front().size() + 2), FLT_MIN));
+        if (!ImGui::BeginChild(
+                "Container",
+                ImVec2(ImGui::GetContentRegionAvail().x,
+                       (ImGui::GetFontSize() + ImGui::GetStyle().CellPadding.y * 2) * (layer_weights.size() + 1) +
+                           ImGui::GetStyle().ScrollbarSize),
+                false, ImGuiWindowFlags_HorizontalScrollbar)) {
+            ImGui::EndChild();
+            ImGui::TreePop();
+            continue;
         }
+
+        ImVec4 color;
+        color.w = 1;
+
+        ImGui::BeginTable("Biases", 2,
+                          ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_NoHostExtendX,
+                          ImVec2(column_width * 2, 0));
+        ImGui::TableSetupColumn("Neuron");
         ImGui::TableSetupColumn("Bias");
         ImGui::TableHeadersRow();
-
-        for (size_t neuron_index = 0; neuron_index != layer_weights.size(); ++neuron_index) {
-            const auto& neuron_weights = layer_weights[neuron_index];
-
-            int column = 0;
+        for (size_t neuron_index = 0; neuron_index != layer_biases.size(); ++neuron_index) {
             ImGui::TableNextRow();
-            ImGui::TableSetColumnIndex(column);
+            ImGui::TableSetColumnIndex(0);
             ImGui::Text("%llu", neuron_index);
-
-            ImVec4 color;
-            color.w = 1;
-
-            for (size_t input_index = 0; input_index != neuron_weights.size(); ++input_index) {
-                ImGui::TableSetColumnIndex(++column);
-                ImGui::ColorConvertHSVtoRGB(0.17 * (std::tanh(neuron_weights[input_index]) + 1), 1.0f, 1.0f, color.x, color.y, color.z);
-                ImGui::TextColored(color, "%f", neuron_weights[input_index]);
-            }
-
-            ImGui::TableSetColumnIndex(++column);
-            ImGui::ColorConvertHSVtoRGB(0.17 * (std::tanh(layer_biases[neuron_index]) + 1), 1.0f, 1.0f, color.x, color.y, color.z);
+            ImGui::TableSetColumnIndex(1);
+            ImGui::ColorConvertHSVtoRGB(0.17 * (std::tanh(layer_biases[neuron_index]) + 1), 1.0f, 1.0f, color.x,
+                                        color.y, color.z);
             ImGui::TextColored(color, "%f", layer_biases[neuron_index]);
         }
-
         ImGui::EndTable();
+
+        size_t start_index = 0;
+        for (size_t remaining_columns = layer_weights.front().size(); remaining_columns != 0;) {
+            const size_t columns_count =
+                remaining_columns > IMGUI_TABLE_MAX_COLUMNS ? IMGUI_TABLE_MAX_COLUMNS : remaining_columns;
+            const size_t next_start_index = start_index + columns_count;
+
+            ImGui::SameLine(0, 0);
+            sprintf_s(name_buffer, "Weights from %llu", start_index);
+            ImGui::BeginTable(name_buffer, columns_count,
+                              ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_NoHostExtendX,
+                              ImVec2(column_width * columns_count, 0));
+            for (size_t weight_index = start_index; weight_index != next_start_index; ++weight_index) {
+                sprintf_s(name_buffer, "Weight %llu", weight_index);
+                ImGui::TableSetupColumn(name_buffer);
+            }
+            ImGui::TableHeadersRow();
+
+            for (size_t neuron_index = 0; neuron_index != layer_weights.size(); ++neuron_index) {
+                const auto& neuron_weights = layer_weights[neuron_index];
+
+                int column = 0;
+                ImGui::TableNextRow();
+                for (size_t input_index = start_index; input_index != next_start_index; ++input_index) {
+                    ImGui::TableSetColumnIndex(column);
+                    ImGui::ColorConvertHSVtoRGB(0.17 * (std::tanh(neuron_weights[input_index]) + 1), 1.0f, 1.0f,
+                                                color.x, color.y, color.z);
+                    ImGui::TextColored(color, "%f", neuron_weights[input_index]);
+                    ++column;
+                }
+            }
+
+            ImGui::EndTable();
+            start_index = next_start_index;
+            remaining_columns -= columns_count;
+        }
+
+        ImGui::EndChild();
         ImGui::TreePop();
     }
 }
