@@ -75,7 +75,7 @@ std::vector<double> Network::ComputeOutput(const std::vector<double>& inputs) co
     assert(inputs.size() == m_weights.front().front().size());
 
     std::vector<double> input_buffer(m_max_layer_size);
-    input_buffer.assign(inputs.begin(), inputs.end());
+    std::copy(inputs.begin(), inputs.end(), input_buffer.begin());
 
     std::vector<double> output_buffer(m_max_layer_size);
 

@@ -1,5 +1,6 @@
 #include "inspector.h"
 
+#include <algorithm>
 #include <cmath>
 #include <optional>
 #include <string>
@@ -92,7 +93,7 @@ static void DrawNetworkConnections(const Neural::Network& ann, std::vector<doubl
 
     if (inputs) {
         input_buffer.emplace(max_layer_size);
-        input_buffer->assign(inputs->begin(), inputs->end());
+        std::copy(inputs->begin(), inputs->end(), input_buffer->begin());
         output_buffer.emplace(max_layer_size);
     }
 
