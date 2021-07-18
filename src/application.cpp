@@ -89,7 +89,7 @@ bool Application::Init() {
     m_network = std::make_unique<Neural::Network>(3, std::vector<size_t>{5, 1});
     m_network->Randomize(1337);
 
-    m_network_inputs = {0.25, 0.5, 0.75};
+    m_network_editor = std::make_unique<NetworkEditor>(*m_network);
 
     return true;
 }
@@ -144,12 +144,8 @@ void Application::Render() {
     ImGui::ShowDemoWindow();
 
     ImGui::Begin("Inspector");
-    if (ImGui::CollapsingHeader("Neural network")) {
-        Inspector::ShowProperty(*m_network, &m_network_inputs);
-        if (ImGui::Button("Randomize")) {
-            m_network->Randomize();
-        }
-    }
+    if (ImGui::CollapsingHeader("Neural network"))
+        m_network_editor->Show();
     ImGui::End();
 
     ImGui::Render();

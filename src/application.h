@@ -5,6 +5,7 @@
 #include <SDL.h>
 
 #include "event.h"
+#include "network_editor.h"
 #include <neural/network.h>
 
 class Application {
@@ -22,7 +23,7 @@ private:
     SDL_GLContext m_context;
     bool m_running;
     std::unique_ptr<Neural::Network> m_network;
-    std::vector<double> m_network_inputs;
+    std::unique_ptr<NetworkEditor> m_network_editor;
 
     Event<int, int> m_resized;
 
