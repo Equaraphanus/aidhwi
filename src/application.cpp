@@ -144,6 +144,7 @@ void Application::Render() {
     ImGui::ShowDemoWindow();
 
     ImGui::Begin("Inspector");
+    ImGui::SetNextItemOpen(true, ImGuiCond_Once);
     if (ImGui::CollapsingHeader("Neural network"))
         m_network_editor->Show();
     ImGui::End();
