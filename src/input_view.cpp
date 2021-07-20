@@ -112,13 +112,11 @@ void InputView::Show() {
     for (const auto& stroke : m_glyph_strokes) {
         assert(stroke.size() >= 2);
 
-        for (size_t i = 1; i != stroke.size(); ++i) {
-            const auto& previous_position = stroke[i - 1];
-            const auto& current_position = stroke[i];
-            draw_list->AddLine(ImVec2(previous_position.x + screen_offset.x, previous_position.y + screen_offset.y),
-                               ImVec2(current_position.x + screen_offset.x, current_position.y + screen_offset.y),
-                               m_stroke_color, m_stroke_thickness);
-        }
+        std::vector<ImVec2> stroke_points;
+        stroke_points.reserve(stroke.size());
+        for (const auto& point : stroke)
+            stroke_points.emplace_back(point.x + screen_offset.x, point.y + screen_offset.y);
+        draw_list->AddPolyline(stroke_points.data(), stroke_points.size(), m_stroke_color, ImDrawFlags_RoundCornersAll, m_stroke_thickness);
     }
 
     ImGui::EndChild();
