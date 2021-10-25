@@ -1,6 +1,8 @@
 #include "application.h"
 
+#include <algorithm>
 #include <iostream>
+#include <string>
 
 #include <backends/imgui_impl_opengl3.h>
 #include <backends/imgui_impl_sdl.h>
@@ -86,8 +88,18 @@ bool Application::Init() {
     colors[ImGuiCol_FrameBg] = ImVec4(0.43f, 0.43f, 0.43f, 0.39f);
     colors[ImGuiCol_CheckMark] = ImVec4(0.34f, 0.98f, 0.26f, 1.00f);
 
-    m_network = std::make_unique<Neural::Network>(3, std::vector<size_t>{5, 1});
+    std::cerr << "Setting up input view..." << std::endl;
+    m_glyph_buffer_width = 16;
+    m_glyph_buffer_height = 16;
+    m_output_options.assign({"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"});
+    // Arbitrarily chosen number, probably should be tuned by trial and error.
+    const size_t hidden_layer_size = m_output_options.size() * 2;
+
+    m_network = std::make_unique<Neural::Network>(m_glyph_buffer_width * m_glyph_buffer_height,
+                                                  std::vector<size_t>{hidden_layer_size, m_output_options.size()});
     m_network->Randomize(1337);
+
+    m_input_view = std::make_unique<InputView>();
 
     m_network_editor = std::make_unique<NetworkEditor>(*m_network);
 
@@ -133,8 +145,9 @@ void Application::HandleEvent(SDL_Event& evt) {
 }
 
 void Application::Render() {
-    static unsigned last_timestamp = SDL_GetTicks();
-    unsigned timestamp = SDL_GetTicks();
+    // TODO: Move to class declaration.
+    // static unsigned last_timestamp = SDL_GetTicks();
+    // unsigned timestamp = SDL_GetTicks();
 
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplSDL2_NewFrame(m_window);
@@ -149,13 +162,70 @@ void Application::Render() {
         m_network_editor->Show();
     ImGui::End();
 
+    ImGui::Begin("Input demo");
+    bool glyph_changed = m_input_view->Show(ImVec2(ImGui::GetContentRegionAvailWidth() - ImGui::GetFontSize() * 12, 0));
+    size_t glyph_count = m_input_view->GetGlyphCount();
+    if (glyph_changed && glyph_count != 0) {
+        std::vector<float> buffer(m_network_editor->GetInputs().size(), 0);
+        m_input_view->QueryGlyphBuffer(glyph_count - 1, m_glyph_buffer_width, m_glyph_buffer_height, buffer);
+        std::vector<double> inputs(buffer.begin(), buffer.end());
+        auto outputs = m_network->ComputeOutput(inputs);
+        m_selected_option = 0;
+        double certainty = 0;
+        for (size_t i = 0; i != outputs.size(); ++i) {
+            if (outputs[i] > certainty) {
+                certainty = outputs[i];
+                m_selected_option = i;
+            }
+        }
+    }
+    ImGui::SameLine();
+    ImGui::BeginChild("Tools");
+    bool wants_feed_to_ann = ImGui::Button("Feed the last glyph to ANN") && glyph_count != 0;
+    // TODO: Show radio buttons for every possible value.
+    bool wants_add_as_record = ImGui::Button("Add as an example record") && glyph_count != 0;
+    for (size_t option_index = 0; option_index != m_output_options.size(); ++option_index) {
+        ImGui::RadioButton(m_output_options[option_index].c_str(), &m_selected_option, option_index);
+    }
+    if (wants_feed_to_ann || wants_add_as_record) {
+        std::vector<float> buffer(m_network_editor->GetInputs().size(), 0);
+        m_input_view->QueryGlyphBuffer(glyph_count - 1, m_glyph_buffer_width, m_glyph_buffer_height, buffer);
+
+        for (size_t y = 0; y != m_glyph_buffer_height; ++y) {
+            for (size_t x = 0; x != m_glyph_buffer_width; ++x) {
+                // static constexpr const char* brightness_values[] = {"  ", ".'", "~~", "][", "XX", "WM", "$$"};
+                static constexpr const char* brightness_values[] = {"  ", "\xb0\xb0", "\xb1\xb1", "\xb2\xb2",
+                                                                    "\xdb\xdb"};
+                static constexpr size_t brightness_levels = sizeof(brightness_values) / sizeof(*brightness_values);
+                std::cerr << brightness_values[std::clamp(
+                    static_cast<size_t>(buffer[y * m_glyph_buffer_width + x] * brightness_levels), 0llu,
+                    brightness_levels - 1)];
+            }
+            std::cerr << std::endl;
+        }
+
+        if (wants_feed_to_ann)
+            m_network_editor->SetInputs(buffer);
+        if (wants_add_as_record) {
+            auto target_outputs = std::vector<double>(10);
+            target_outputs[m_selected_option] = 1.0;
+            m_network_editor->AddLearningExampleRecord(buffer, target_outputs);
+        }
+    }
+    ImGui::EndChild();
+    ImGui::End();
+
     ImGui::Render();
     SDL_GL_MakeCurrent(m_window, m_context);
     glClearColor(0.0625f, 0.0625f, 0.0625f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
+    if (glyph_count != 0) {
+        glViewport(0, 0, 720, 720);
+        m_input_view->DrawGlyphBuffer(glyph_count - 1);
+    }
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
     SDL_GL_SwapWindow(m_window);
 
-    last_timestamp = timestamp;
+    // last_timestamp = timestamp;
 }

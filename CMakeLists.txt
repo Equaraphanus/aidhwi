@@ -58,6 +58,7 @@ add_executable(${PROJECT_NAME}
 	src/application.cpp
     src/inspector.cpp
     src/network_editor.cpp
+    src/input_view.cpp
     deps/imgui/backends/imgui_impl_sdl.cpp
     deps/imgui/backends/imgui_impl_opengl3.cpp
 )
