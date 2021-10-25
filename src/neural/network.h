@@ -26,6 +26,9 @@ public:
 
     inline size_t GetMaxLayerSize() const { return m_max_layer_size; }
 
+    inline size_t GetInputsCount() const { return m_weights.front().front().size(); }
+    inline size_t GetOutputsCount() const { return m_weights.back().size(); }
+
 private:
     std::vector<std::vector<std::vector<double>>> m_weights;
     std::vector<std::vector<double>> m_biases;
