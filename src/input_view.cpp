@@ -33,16 +33,16 @@ bool InputView::Stroke::Intersects(const InputView::Stroke& other, float thresho
     return false;
 }
 
-void InputView::Show() {
+bool InputView::Show(ImVec2 size) {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     ImGui::PushStyleColor(ImGuiCol_ChildBg, m_background_color);
-    bool visible = ImGui::BeginChild("Frame", ImVec2(0, 0), true, ImGuiWindowFlags_NoMove);
+    bool visible = ImGui::BeginChild("Frame", size, true, ImGuiWindowFlags_NoMove);
     ImGui::PopStyleColor();
     ImGui::PopStyleVar();
 
     if (!visible) {
         ImGui::EndChild();
-        return;
+        return false;
     }
 
     bool dirty = false;
@@ -67,6 +67,18 @@ void InputView::Show() {
             ++m_history_position;
             m_glyph_strokes = m_stroke_history[m_history_position];
             dirty = true;
+        }
+        if (ImGui::BeginMenu("History")) {
+            char buffer[48];
+            for (size_t history_index = 0; history_index != m_stroke_history.size(); ++history_index) {
+                sprintf_s(buffer, "State %llu (%llu strokes)", history_index, m_stroke_history[history_index].size());
+                if (ImGui::MenuItem(buffer, nullptr, history_index <= m_history_position)) {
+                    m_history_position = history_index;
+                    m_glyph_strokes = m_stroke_history[m_history_position];
+                    dirty = true;
+                }
+            }
+            ImGui::EndMenu();
         }
 
         ImGui::Separator();
@@ -198,6 +210,217 @@ void InputView::Show() {
     }
 
     ImGui::EndChild();
+    return dirty;
+}
+
+void InputView::DrawGlyphBuffer(size_t index) const {
+    if (m_drawing || index >= m_glyphs.size())
+        return;
+
+    const auto& glyph = m_glyphs[index];
+
+    // TODO: Initialize GL-related stuff in the constructor and keep it.
+
+    GLint success;
+
+    static const char* vertex_shader_text = "#version 330 core\n"
+                                            "layout (location = 0) in vec2 pos;\n"
+                                            "uniform vec4 rect;\n"
+                                            "void main() {\n"
+                                            "    gl_Position = vec4((pos - rect.xy) / rect.zw * vec2(2, -2) + vec2(-1, 1), 0.0, 1.0);\n"
+                                            "}";
+    GLuint vertex_shader_handle = glCreateShader(GL_VERTEX_SHADER);
+    assert(vertex_shader_handle != 0);
+    glShaderSource(vertex_shader_handle, 1, &vertex_shader_text, nullptr);
+    glCompileShader(vertex_shader_handle);
+
+    glGetShaderiv(vertex_shader_handle, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        char error_message[512];
+        glGetShaderInfoLog(vertex_shader_handle, sizeof(error_message), nullptr, error_message);
+        printf("Failed to compile vertex shader:\n%s\n", error_message);
+        assert(false);
+    }
+
+    static const char* geometry_shader_text = "#version 330 core\n"
+                                              "layout (lines) in;\n"
+                                              "layout (triangle_strip, max_vertices = 16) out;\n"
+                                              "out float col;\n"
+                                              "uniform float thickness;\n"
+                                              "void main() {\n"
+                                              "    vec2 dir = gl_in[1].gl_Position.xy - gl_in[0].gl_Position.xy;\n"
+                                              "    float l = pow(dir.x * dir.x + dir.y * dir.y, 0.5);\n"
+                                              "    dir /= l;\n"
+                                              "    vec2 sideways = vec2(dir.y, -dir.x) * thickness;\n"
+                                              "    dir *= thickness;\n"
+                                              "    gl_Position = gl_in[0].gl_Position;\n"
+                                              "    gl_Position.xy -= sideways;\n"
+                                              "    col = 0.0;\n"
+                                              "    EmitVertex();\n"
+                                              "    gl_Position = gl_in[1].gl_Position;\n"
+                                              "    gl_Position.xy -= sideways;\n"
+                                              "    col = 0.0;\n"
+                                              "    EmitVertex();\n"
+                                              "    gl_Position = gl_in[0].gl_Position;\n"
+                                              "    col = 1.0;\n"
+                                              "    EmitVertex();\n"
+                                              "    gl_Position = gl_in[1].gl_Position;\n"
+                                              "    col = 1.0;\n"
+                                              "    EmitVertex();\n"
+                                              "    gl_Position = gl_in[0].gl_Position;\n"
+                                              "    gl_Position.xy += sideways;\n"
+                                              "    col = 0.0;\n"
+                                              "    EmitVertex();\n"
+                                              "    gl_Position = gl_in[1].gl_Position;\n"
+                                              "    gl_Position.xy += sideways;\n"
+                                              "    col = 0.0;\n"
+                                              "    EmitVertex();\n"
+                                              "    EndPrimitive();\n"
+                                              "    gl_Position = gl_in[0].gl_Position;\n"
+                                              "    gl_Position.xy -= sideways;\n"
+                                              "    col = 0.0;\n"
+                                              "    EmitVertex();\n"
+                                              "    gl_Position = gl_in[0].gl_Position;\n"
+                                              "    gl_Position.xy -= sideways * 0.5;\n"
+                                              "    gl_Position.xy -= dir * 0.7;\n"
+                                              "    col = 0.0;\n"
+                                              "    EmitVertex();\n"
+                                              "    gl_Position = gl_in[0].gl_Position;\n"
+                                              "    col = 1.0;\n"
+                                              "    EmitVertex();\n"
+                                              "    gl_Position = gl_in[0].gl_Position;\n"
+                                              "    gl_Position.xy += sideways * 0.5;\n"
+                                              "    gl_Position.xy -= dir * 0.7;\n"
+                                              "    col = 0.0;\n"
+                                              "    EmitVertex();\n"
+                                              "    gl_Position = gl_in[0].gl_Position;\n"
+                                              "    gl_Position.xy += sideways;\n"
+                                              "    col = 0.0;\n"
+                                              "    EmitVertex();\n"
+                                              "    EndPrimitive();\n"
+                                              "    gl_Position = gl_in[1].gl_Position;\n"
+                                              "    gl_Position.xy -= sideways;\n"
+                                              "    col = 0.0;\n"
+                                              "    EmitVertex();\n"
+                                              "    gl_Position = gl_in[1].gl_Position;\n"
+                                              "    gl_Position.xy -= sideways * 0.5;\n"
+                                              "    gl_Position.xy += dir * 0.7;\n"
+                                              "    col = 0.0;\n"
+                                              "    EmitVertex();\n"
+                                              "    gl_Position = gl_in[1].gl_Position;\n"
+                                              "    col = 1.0;\n"
+                                              "    EmitVertex();\n"
+                                              "    gl_Position = gl_in[1].gl_Position;\n"
+                                              "    gl_Position.xy += sideways * 0.5;\n"
+                                              "    gl_Position.xy += dir * 0.7;\n"
+                                              "    col = 0.0;\n"
+                                              "    EmitVertex();\n"
+                                              "    gl_Position = gl_in[1].gl_Position;\n"
+                                              "    gl_Position.xy += sideways;\n"
+                                              "    col = 0.0;\n"
+                                              "    EmitVertex();\n"
+                                              "    EndPrimitive();\n"
+                                              "}";
+    GLuint geometry_shader_handle = glCreateShader(GL_GEOMETRY_SHADER);
+    assert(geometry_shader_handle != 0);
+    glShaderSource(geometry_shader_handle, 1, &geometry_shader_text, nullptr);
+    glCompileShader(geometry_shader_handle);
+
+    glGetShaderiv(geometry_shader_handle, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        char error_message[512];
+        glGetShaderInfoLog(geometry_shader_handle, sizeof(error_message), nullptr, error_message);
+        printf("Failed to compile geometry shader:\n%s\n", error_message);
+        assert(false);
+    }
+
+    static const char* fragment_shader_text = "#version 330 core\n"
+                                              "in float col;\n"
+                                              "layout (location = 0) out float color;\n"
+                                              "void main() {\n"
+                                              "    color = col;\n"
+                                              "}";
+    GLuint fragment_shader_handle = glCreateShader(GL_FRAGMENT_SHADER);
+    assert(fragment_shader_handle != 0);
+    glShaderSource(fragment_shader_handle, 1, &fragment_shader_text, nullptr);
+    glCompileShader(fragment_shader_handle);
+
+    glGetShaderiv(fragment_shader_handle, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        char error_message[512];
+        glGetShaderInfoLog(fragment_shader_handle, sizeof(error_message), nullptr, error_message);
+        printf("Failed to compile fragment shader:\n%s\n", error_message);
+        assert(false);
+    }
+
+    GLuint shader_program_id = glCreateProgram();
+    glAttachShader(shader_program_id, vertex_shader_handle);
+    glAttachShader(shader_program_id, geometry_shader_handle);
+    glAttachShader(shader_program_id, fragment_shader_handle);
+    glLinkProgram(shader_program_id);
+
+    glGetProgramiv(shader_program_id, GL_LINK_STATUS, &success);
+    if (!success) {
+        char error_message[512];
+        glGetProgramInfoLog(shader_program_id, sizeof(error_message), nullptr, error_message);
+        printf("Failed to link shader program:\n%s\n", error_message);
+        assert(false);
+    }
+
+    glDeleteShader(vertex_shader_handle);
+    glDeleteShader(fragment_shader_handle);
+
+    glUseProgram(shader_program_id);
+
+    glm::vec2 rect_min = glyph.rect_min;
+    glm::vec2 rect_size = glyph.rect_max - rect_min;
+    float half_dimensions_difference = (rect_size.x - rect_size.y) * 0.5f;
+    if (half_dimensions_difference > 0) {
+        rect_min.y -= half_dimensions_difference;
+        rect_size.y = rect_size.x;
+    } else {
+        rect_min.x += half_dimensions_difference;
+        rect_size.x = rect_size.y;
+    }
+
+    glUniform4f(glGetUniformLocation(shader_program_id, "rect"), rect_min.x, rect_min.y, rect_size.x, rect_size.y);
+    glUniform1f(glGetUniformLocation(shader_program_id, "thickness"), 1.0f / 16.0f);
+
+    glClearColor(0, 0, 0, 0);
+    glEnable(GL_BLEND);
+    glBlendEquation(GL_MAX);
+    glDepthMask(GL_FALSE);
+
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    GLuint vbo = 0;
+    glGenBuffers(1, &vbo);
+    assert(vbo != 0);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
+    GLuint vao = 0;
+    glGenVertexArrays(1, &vao);
+    assert(vao != 0);
+    glBindVertexArray(vao);
+
+    const GLuint vertex_attrib_index = 0;
+    glEnableVertexAttribArray(vertex_attrib_index);
+    glVertexAttribPointer(vertex_attrib_index, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
+
+    for (auto stroke : glyph.strokes) {
+        const auto& points = stroke.get().points;
+        glBufferData(GL_ARRAY_BUFFER, points.size() * sizeof(*points.data()), points.data(), GL_STATIC_DRAW);
+        glDrawArrays(GL_LINE_STRIP, 0, points.size());
+    }
+    glDisableVertexAttribArray(vertex_attrib_index);
+
+    glDeleteVertexArrays(1, &vao);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glDeleteBuffers(1, &vbo);
+
+    glUseProgram(0);
+    glDeleteProgram(shader_program_id);
 }
 
 void InputView::QueryGlyphBuffer(size_t index, unsigned buffer_width, unsigned buffer_height,

@@ -6,6 +6,7 @@
 #include <vector>
 
 #include <glm/ext/vector_float2.hpp>
+#include <imgui.h>
 #include <neural/network.h>
 
 class InputView {
@@ -13,10 +14,11 @@ public:
     InputView(float = 16, float = 8, float = 4, std::uint32_t = 0x2c451a, std::uint32_t = 0xffffff);
     ~InputView();
 
-    void Show();
+    bool Show(ImVec2 = ImVec2(0, 0));
 
     inline size_t GetGlyphCount() const { return m_glyphs.size(); }
 
+    void DrawGlyphBuffer(size_t) const;
     void QueryGlyphBuffer(size_t, unsigned, unsigned, std::vector<float>&) const;
 
 private:
