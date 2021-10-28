@@ -101,6 +101,10 @@ else()
         glad
         ${CMAKE_DL_LIBS}
     )
+    target_compile_definitions(${PROJECT_NAME}
+        PUBLIC
+        IMGUI_IMPL_OPENGL_LOADER_GLAD
+    )
 endif()
 
 set_flags(${PROJECT_NAME})
