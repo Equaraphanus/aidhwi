@@ -99,6 +99,7 @@ if(EMSCRIPTEN)
 else()
     target_link_libraries(${PROJECT_NAME}
         glad
+        ${CMAKE_DL_LIBS}
     )
 endif()
 
