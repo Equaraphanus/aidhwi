@@ -5,7 +5,14 @@
 #include <initializer_list>
 #include <set>
 
+#ifdef __EMSCRIPTEN__
+#include <GLES2/gl2.h>
+#include <GLES2/gl2ext.h>
+#include <glm/ext/vector_float3.hpp>
+#else
 #include <glad/glad.h>
+#endif
+
 #include <glm/geometric.hpp>
 #include <imgui.h>
 
@@ -71,7 +78,7 @@ bool InputView::Show(ImVec2 size) {
         if (ImGui::BeginMenu("History")) {
             char buffer[48];
             for (size_t history_index = 0; history_index != m_stroke_history.size(); ++history_index) {
-                sprintf_s(buffer, "State %llu (%llu strokes)", history_index, m_stroke_history[history_index].size());
+                snprintf(buffer, sizeof(buffer), "State %zu (%zu strokes)", history_index, m_stroke_history[history_index].size());
                 if (ImGui::MenuItem(buffer, nullptr, history_index <= m_history_position)) {
                     m_history_position = history_index;
                     m_glyph_strokes = m_stroke_history[m_history_position];
@@ -115,7 +122,7 @@ bool InputView::Show(ImVec2 size) {
         if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
             // Set up a new stroke.
             m_glyph_strokes.emplace_back(canvas_position);
-            printf("New stroke #%llu\n", m_glyph_strokes.size());
+            printf("New stroke #%zu\n", m_glyph_strokes.size());
             m_drawing = true;
         } else if (ImGui::IsItemActive()) {
             auto& current_stroke_points = m_glyph_strokes.back().points;
@@ -125,7 +132,7 @@ bool InputView::Show(ImVec2 size) {
             } else {
                 current_stroke_points.push_back(canvas_position);
             }
-            ImGui::SetTooltip("#%llu:%llu (%.1f, %.1f)", m_glyph_strokes.size(), current_stroke_points.size(),
+            ImGui::SetTooltip("#%zu:%zu (%.1f, %.1f)", m_glyph_strokes.size(), current_stroke_points.size(),
                               canvas_position.x, canvas_position.y);
         } else if (m_drawing && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
             // Calculate the bounding box for the completed stroke.
@@ -145,11 +152,11 @@ bool InputView::Show(ImVec2 size) {
         ++m_history_position;
         m_stroke_history.resize(m_history_position);
         m_stroke_history.push_back(m_glyph_strokes);
-        printf("History resized to %llu\n", m_stroke_history.size());
+        printf("History resized to %zu\n", m_stroke_history.size());
     }
 
     if (dirty) {
-        printf("Process %llu strokes\n", m_glyph_strokes.size());
+        printf("Process %zu strokes\n", m_glyph_strokes.size());
         m_glyphs.clear();
 
         std::vector<std::set<size_t>> intersection_groups;
@@ -223,12 +230,22 @@ void InputView::DrawGlyphBuffer(size_t index) const {
 
     GLint success;
 
+#ifdef __EMSCRIPTEN__
+    static const char* vertex_shader_text = "#version 100\n"
+                                            "attribute vec3 pos;\n"
+                                            "varying highp float col;\n"
+                                            "void main() {\n"
+                                            "    gl_Position = vec4(pos.xy, 0.0, 1.0);\n"
+                                            "    col = pos.z;\n"
+                                            "}";
+#else
     static const char* vertex_shader_text = "#version 330 core\n"
                                             "layout (location = 0) in vec2 pos;\n"
                                             "uniform vec4 rect;\n"
                                             "void main() {\n"
-                                            "    gl_Position = vec4((pos - rect.xy) / rect.zw * vec2(2, -2) + vec2(-1, 1), 0.0, 1.0);\n"
+                                            "    gl_Position = vec4((pos - rect.xy) / rect.zw * 2.0 - vec2(1.0, -1.0), 0.0, 1.0);\n"
                                             "}";
+#endif
     GLuint vertex_shader_handle = glCreateShader(GL_VERTEX_SHADER);
     assert(vertex_shader_handle != 0);
     glShaderSource(vertex_shader_handle, 1, &vertex_shader_text, nullptr);
@@ -242,6 +259,7 @@ void InputView::DrawGlyphBuffer(size_t index) const {
         assert(false);
     }
 
+#ifndef __EMSCRIPTEN__
     static const char* geometry_shader_text = "#version 330 core\n"
                                               "layout (lines) in;\n"
                                               "layout (triangle_strip, max_vertices = 16) out;\n"
@@ -333,13 +351,22 @@ void InputView::DrawGlyphBuffer(size_t index) const {
         printf("Failed to compile geometry shader:\n%s\n", error_message);
         assert(false);
     }
+#endif
 
+#ifdef __EMSCRIPTEN__
+    static const char* fragment_shader_text = "#version 100\n"
+                                              "varying highp float col;\n"
+                                              "void main() {\n"
+                                              "    gl_FragColor = vec4(col, col, col, 1.0);\n"
+                                              "}";
+#else
     static const char* fragment_shader_text = "#version 330 core\n"
                                               "in float col;\n"
                                               "layout (location = 0) out float color;\n"
                                               "void main() {\n"
                                               "    color = col;\n"
                                               "}";
+#endif
     GLuint fragment_shader_handle = glCreateShader(GL_FRAGMENT_SHADER);
     assert(fragment_shader_handle != 0);
     glShaderSource(fragment_shader_handle, 1, &fragment_shader_text, nullptr);
@@ -355,7 +382,9 @@ void InputView::DrawGlyphBuffer(size_t index) const {
 
     GLuint shader_program_id = glCreateProgram();
     glAttachShader(shader_program_id, vertex_shader_handle);
+#ifndef __EMSCRIPTEN__
     glAttachShader(shader_program_id, geometry_shader_handle);
+#endif
     glAttachShader(shader_program_id, fragment_shader_handle);
     glLinkProgram(shader_program_id);
 
@@ -382,9 +411,12 @@ void InputView::DrawGlyphBuffer(size_t index) const {
         rect_min.x += half_dimensions_difference;
         rect_size.x = rect_size.y;
     }
+    rect_size.y *= -1.0;
 
+#ifndef __EMSCRIPTEN__
     glUniform4f(glGetUniformLocation(shader_program_id, "rect"), rect_min.x, rect_min.y, rect_size.x, rect_size.y);
     glUniform1f(glGetUniformLocation(shader_program_id, "thickness"), 1.0f / 16.0f);
+#endif
 
     glClearColor(0, 0, 0, 0);
     glEnable(GL_BLEND);
@@ -398,23 +430,113 @@ void InputView::DrawGlyphBuffer(size_t index) const {
     assert(vbo != 0);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
 
+#ifndef __EMSCRIPTEN__
     GLuint vao = 0;
     glGenVertexArrays(1, &vao);
     assert(vao != 0);
     glBindVertexArray(vao);
+#endif
 
     const GLuint vertex_attrib_index = 0;
     glEnableVertexAttribArray(vertex_attrib_index);
-    glVertexAttribPointer(vertex_attrib_index, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
+
+#ifdef __EMSCRIPTEN__
+#define VERTEX_ATTRIB_COUNT 3
+#else
+#define VERTEX_ATTRIB_COUNT 2
+#endif
+
+    glVertexAttribPointer(vertex_attrib_index, VERTEX_ATTRIB_COUNT, GL_FLOAT, GL_FALSE, 0, nullptr);
+
+#undef VERTEX_ATTRIB_COUNT
+
+#ifdef __EMSCRIPTEN__
+    const float thickness = 1.0f / 16.0f;
+#endif
 
     for (auto stroke : glyph.strokes) {
         const auto& points = stroke.get().points;
+#ifdef __EMSCRIPTEN__
+        if (points.size() == 0)
+            continue;
+
+#define TRANSLATE_VERTEX(x) (((x) - rect_min) / rect_size * 2.0f - glm::vec2(1.0f, -1.0f))
+
+        std::vector<glm::vec3> vertices(points.size() * 30);
+        glm::vec2 point_a = TRANSLATE_VERTEX(points[0]);
+        for (std::size_t point_index = 1; point_index != points.size(); ++point_index) {
+            glm::vec2 point_b = TRANSLATE_VERTEX(points[point_index]);
+            glm::vec2 dir = glm::normalize(point_b - point_a);
+            glm::vec2 sideways = glm::vec2(dir.y, -dir.x) * thickness;
+            dir *= thickness;
+
+            glm::vec3 positions[10];
+            positions[0] = glm::vec3(point_a - sideways, 0.0f);
+            positions[1] = glm::vec3(point_b - sideways, 0.0f);
+            positions[2] = glm::vec3(point_a, 1.0f);
+            positions[3] = glm::vec3(point_b, 1.0f);
+            positions[4] = glm::vec3(point_a + sideways, 0.0f);
+            positions[5] = glm::vec3(point_b + sideways, 0.0f);
+            positions[6] = glm::vec3(point_a - sideways * 0.5f - dir * 0.7f, 0.0f);
+            positions[7] = glm::vec3(point_a + sideways * 0.5f - dir * 0.7f, 0.0f);
+            positions[8] = glm::vec3(point_b - sideways * 0.5f + dir * 0.7f, 0.0f);
+            positions[9] = glm::vec3(point_b + sideways * 0.5f + dir * 0.7f, 0.0f);
+
+            point_a = point_b;
+
+            vertices.push_back(positions[0]);
+            vertices.push_back(positions[1]);
+            vertices.push_back(positions[2]);
+
+            vertices.push_back(positions[2]);
+            vertices.push_back(positions[1]);
+            vertices.push_back(positions[3]);
+
+            vertices.push_back(positions[2]);
+            vertices.push_back(positions[3]);
+            vertices.push_back(positions[4]);
+
+            vertices.push_back(positions[4]);
+            vertices.push_back(positions[3]);
+            vertices.push_back(positions[5]);
+
+            vertices.push_back(positions[6]);
+            vertices.push_back(positions[0]);
+            vertices.push_back(positions[2]);
+
+            vertices.push_back(positions[6]);
+            vertices.push_back(positions[2]);
+            vertices.push_back(positions[7]);
+
+            vertices.push_back(positions[7]);
+            vertices.push_back(positions[2]);
+            vertices.push_back(positions[4]);
+
+            vertices.push_back(positions[1]);
+            vertices.push_back(positions[8]);
+            vertices.push_back(positions[3]);
+
+            vertices.push_back(positions[3]);
+            vertices.push_back(positions[8]);
+            vertices.push_back(positions[9]);
+
+            vertices.push_back(positions[3]);
+            vertices.push_back(positions[9]);
+            vertices.push_back(positions[5]);
+        }
+        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(*vertices.data()), vertices.data(), GL_STATIC_DRAW);
+        glDrawArrays(GL_TRIANGLES, 0, vertices.size());
+#undef TRANSLATE_VERTEX
+#else
         glBufferData(GL_ARRAY_BUFFER, points.size() * sizeof(*points.data()), points.data(), GL_STATIC_DRAW);
         glDrawArrays(GL_LINE_STRIP, 0, points.size());
+#endif
     }
     glDisableVertexAttribArray(vertex_attrib_index);
 
+#ifndef __EMSCRIPTEN__
     glDeleteVertexArrays(1, &vao);
+#endif
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glDeleteBuffers(1, &vbo);
@@ -442,22 +564,38 @@ void InputView::QueryGlyphBuffer(size_t index, unsigned buffer_width, unsigned b
     assert(buffer_texture_descriptor != 0);
     glBindTexture(GL_TEXTURE_2D, buffer_texture_descriptor);
 
+#ifdef __EMSCRIPTEN__
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, buffer_width, buffer_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+#else
     glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, buffer_width, buffer_height, 0, GL_RED, GL_FLOAT, nullptr);
+#endif
 
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, buffer_texture_descriptor, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, buffer_texture_descriptor, 0);
 
+#ifndef __EMSCRIPTEN__
     GLenum target_buffers[] = {GL_COLOR_ATTACHMENT0};
     glDrawBuffers(sizeof(target_buffers) / sizeof(*target_buffers), target_buffers);
+#endif
     assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
 
     GLint success;
 
+#ifdef __EMSCRIPTEN__
+    static const char* vertex_shader_text = "#version 100\n"
+                                            "attribute vec3 pos;\n"
+                                            "varying highp float col;\n"
+                                            "void main() {\n"
+                                            "    gl_Position = vec4(pos.xy, 0.0, 1.0);\n"
+                                            "    col = pos.z;\n"
+                                            "}";
+#else
     static const char* vertex_shader_text = "#version 330 core\n"
                                             "layout (location = 0) in vec2 pos;\n"
                                             "uniform vec4 rect;\n"
                                             "void main() {\n"
-                                            "    gl_Position = vec4((pos - rect.xy) / rect.zw * 2 - 1, 0.0, 1.0);\n"
+                                            "    gl_Position = vec4((pos - rect.xy) / rect.zw * 2.0 - 1.0, 0.0, 1.0);\n"
                                             "}";
+#endif
     GLuint vertex_shader_handle = glCreateShader(GL_VERTEX_SHADER);
     assert(vertex_shader_handle != 0);
     glShaderSource(vertex_shader_handle, 1, &vertex_shader_text, nullptr);
@@ -471,6 +609,7 @@ void InputView::QueryGlyphBuffer(size_t index, unsigned buffer_width, unsigned b
         assert(false);
     }
 
+#ifndef __EMSCRIPTEN__
     static const char* geometry_shader_text = "#version 330 core\n"
                                               "layout (lines) in;\n"
                                               "layout (triangle_strip, max_vertices = 16) out;\n"
@@ -562,13 +701,41 @@ void InputView::QueryGlyphBuffer(size_t index, unsigned buffer_width, unsigned b
         printf("Failed to compile geometry shader:\n%s\n", error_message);
         assert(false);
     }
+#endif
 
+#ifdef __EMSCRIPTEN__
+    static const char* fragment_shader_text = "#version 100\n"
+                                              "varying highp float col;\n"
+                                              "lowp vec4 float_to_rgba(highp float x) {\n"
+                                              "    highp float a = abs(x / 2.0);\n"
+                                              "    if (a < 1.17549435e-38)\n"
+                                              "        return vec4(0.0);\n"
+                                              "    highp vec4 bytes = vec4(0.0);\n"
+                                              "    highp float e = floor(log2(a)) + 1.0;\n"
+                                              "    highp float m = a * pow(2.0, -e) - 1.0;\n"
+                                              "    bytes[2] = floor(128.0 * m);\n"
+                                              "    m -= bytes[2] / 128.0;"
+                                              "    bytes[1] = floor(32768.0 * m);\n"
+                                              "    m -= bytes[1] / 32768.0;"
+                                              "    bytes[0] = floor(8388608.0 * m);\n"
+                                              "    e += 127.0;"
+                                              "    bytes[3] = floor(e / 2.0);\n"
+                                              "    e -= bytes[3] * 2.0;"
+                                              "    bytes[2] += floor(e) * 128.0;\n"
+                                              "    bytes[3] += step(0.0, -x) * 128.0;\n"
+                                              "    return bytes / 255.0;\n"
+                                              "}\n"
+                                              "void main() {\n"
+                                              "    gl_FragColor = float_to_rgba(col);\n"
+                                              "}";
+#else
     static const char* fragment_shader_text = "#version 330 core\n"
                                               "in float col;\n"
                                               "layout (location = 0) out float color;\n"
                                               "void main() {\n"
                                               "    color = col;\n"
                                               "}";
+#endif
     GLuint fragment_shader_handle = glCreateShader(GL_FRAGMENT_SHADER);
     assert(fragment_shader_handle != 0);
     glShaderSource(fragment_shader_handle, 1, &fragment_shader_text, nullptr);
@@ -584,7 +751,9 @@ void InputView::QueryGlyphBuffer(size_t index, unsigned buffer_width, unsigned b
 
     GLuint shader_program_id = glCreateProgram();
     glAttachShader(shader_program_id, vertex_shader_handle);
+#ifndef __EMSCRIPTEN__
     glAttachShader(shader_program_id, geometry_shader_handle);
+#endif
     glAttachShader(shader_program_id, fragment_shader_handle);
     glLinkProgram(shader_program_id);
 
@@ -619,8 +788,10 @@ void InputView::QueryGlyphBuffer(size_t index, unsigned buffer_width, unsigned b
     rect_size.y *= buffer_height + 2;
 
     glViewport(0, 0, buffer_width, buffer_height);
+#ifndef __EMSCRIPTEN__
     glUniform4f(glGetUniformLocation(shader_program_id, "rect"), rect_min.x, rect_min.y, rect_size.x, rect_size.y);
     glUniform1f(glGetUniformLocation(shader_program_id, "thickness"), 2.0f / buffer_width);
+#endif
 
     glClearColor(0, 0, 0, 0);
     glEnable(GL_BLEND);
@@ -634,25 +805,114 @@ void InputView::QueryGlyphBuffer(size_t index, unsigned buffer_width, unsigned b
     assert(vbo != 0);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
 
+#ifndef __EMSCRIPTEN__
     GLuint vao = 0;
     glGenVertexArrays(1, &vao);
     assert(vao != 0);
     glBindVertexArray(vao);
+#endif
 
     const GLuint vertex_attrib_index = 0;
     glEnableVertexAttribArray(vertex_attrib_index);
-    glVertexAttribPointer(vertex_attrib_index, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
+
+#ifdef __EMSCRIPTEN__
+    constexpr int vertex_components = 3;
+#else
+    constexpr int vertex_components = 2;
+#endif
+
+    glVertexAttribPointer(vertex_attrib_index, vertex_components, GL_FLOAT, GL_FALSE, 0, nullptr);
+
+#ifdef __EMSCRIPTEN__
+    const float thickness = 2.0f / buffer_width;
+#endif
 
     for (auto stroke : glyph.strokes) {
         const auto& points = stroke.get().points;
+#ifdef __EMSCRIPTEN__
+        if (points.size() == 0)
+            continue;
+
+        std::vector<glm::vec3> vertices(points.size() * 30);
+        glm::vec2 point_a = (points[0] - rect_min) / rect_size * 2.0f - 1.0f;
+        for (std::size_t point_index = 1; point_index != points.size(); ++point_index) {
+            glm::vec2 point_b = (points[point_index] - rect_min) / rect_size * 2.0f - 1.0f;
+            glm::vec2 dir = glm::normalize(point_b - point_a);
+            glm::vec2 sideways = glm::vec2(dir.y, -dir.x) * thickness;
+            dir *= thickness;
+
+            glm::vec3 positions[10];
+            positions[0] = glm::vec3(point_a - sideways, 0.0f);
+            positions[1] = glm::vec3(point_b - sideways, 0.0f);
+            positions[2] = glm::vec3(point_a, 1.0f);
+            positions[3] = glm::vec3(point_b, 1.0f);
+            positions[4] = glm::vec3(point_a + sideways, 0.0f);
+            positions[5] = glm::vec3(point_b + sideways, 0.0f);
+            positions[6] = glm::vec3(point_a - sideways * 0.5f - dir * 0.7f, 0.0f);
+            positions[7] = glm::vec3(point_a + sideways * 0.5f - dir * 0.7f, 0.0f);
+            positions[8] = glm::vec3(point_b - sideways * 0.5f + dir * 0.7f, 0.0f);
+            positions[9] = glm::vec3(point_b + sideways * 0.5f + dir * 0.7f, 0.0f);
+
+            point_a = point_b;
+
+            vertices.push_back(positions[0]);
+            vertices.push_back(positions[1]);
+            vertices.push_back(positions[2]);
+
+            vertices.push_back(positions[2]);
+            vertices.push_back(positions[1]);
+            vertices.push_back(positions[3]);
+
+            vertices.push_back(positions[2]);
+            vertices.push_back(positions[3]);
+            vertices.push_back(positions[4]);
+
+            vertices.push_back(positions[4]);
+            vertices.push_back(positions[3]);
+            vertices.push_back(positions[5]);
+
+            vertices.push_back(positions[6]);
+            vertices.push_back(positions[0]);
+            vertices.push_back(positions[2]);
+
+            vertices.push_back(positions[6]);
+            vertices.push_back(positions[2]);
+            vertices.push_back(positions[7]);
+
+            vertices.push_back(positions[7]);
+            vertices.push_back(positions[2]);
+            vertices.push_back(positions[4]);
+
+            vertices.push_back(positions[1]);
+            vertices.push_back(positions[8]);
+            vertices.push_back(positions[3]);
+
+            vertices.push_back(positions[3]);
+            vertices.push_back(positions[8]);
+            vertices.push_back(positions[9]);
+
+            vertices.push_back(positions[3]);
+            vertices.push_back(positions[9]);
+            vertices.push_back(positions[5]);
+        }
+        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(*vertices.data()), vertices.data(), GL_STATIC_DRAW);
+        glDrawArrays(GL_TRIANGLES, 0, vertices.size());
+#else
         glBufferData(GL_ARRAY_BUFFER, points.size() * sizeof(*points.data()), points.data(), GL_STATIC_DRAW);
         glDrawArrays(GL_LINE_STRIP, 0, points.size());
+#endif
     }
     glDisableVertexAttribArray(vertex_attrib_index);
 
+#ifdef __EMSCRIPTEN__
+    glReadPixels(0, 0, buffer_width, buffer_height, GL_RGBA, GL_UNSIGNED_BYTE, output_destination.data());
+#else
     glReadPixels(0, 0, buffer_width, buffer_height, GL_RED, GL_FLOAT, output_destination.data());
+#endif
 
+#ifndef __EMSCRIPTEN__
     glDeleteVertexArrays(1, &vao);
+#endif
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glDeleteBuffers(1, &vbo);

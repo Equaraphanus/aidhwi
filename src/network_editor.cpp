@@ -1,5 +1,6 @@
 #include "network_editor.h"
 
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 
@@ -38,18 +39,18 @@ void NetworkEditor::Show() {
         char name_buffer[32];
         for (size_t record_index = 0; record_index != m_dataset_records.size(); ++record_index) {
             auto& record = m_dataset_records[record_index];
-            sprintf_s(name_buffer, "Record %llu", record_index);
+            snprintf(name_buffer, sizeof(name_buffer), "Record %zu", record_index);
             if (ImGui::TreeNode(name_buffer)) {
                 if (ImGui::TreeNode("Inputs")) {
                     for (size_t input_index = 0; input_index != record.inputs.size(); ++input_index) {
-                        sprintf_s(name_buffer, "Input %llu", input_index);
+                        snprintf(name_buffer, sizeof(name_buffer), "Input %zu", input_index);
                         ImGui::InputDouble(name_buffer, &record.inputs[input_index]);
                     }
                     ImGui::TreePop();
                 }
                 if (ImGui::TreeNode("Outputs")) {
                     for (size_t output_index = 0; output_index != record.outputs.size(); ++output_index) {
-                        sprintf_s(name_buffer, "Output %llu", output_index);
+                        snprintf(name_buffer, sizeof(name_buffer), "Output %zu", output_index);
                         ImGui::InputDouble(name_buffer, &record.outputs[output_index]);
                     }
                     ImGui::TreePop();

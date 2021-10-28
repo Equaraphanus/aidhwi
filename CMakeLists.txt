@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.6)
+cmake_minimum_required(VERSION 3.13)
 
 project(aidhwi VERSION 1.0)
 
@@ -30,6 +30,20 @@ function(set_flags target)
 			-Wpointer-arith
 		)
 	endif()
+
+    if(EMSCRIPTEN)
+        target_compile_options(${target}
+            PUBLIC
+            "SHELL:-s USE_SDL=2"
+        )
+        target_link_options(${target}
+            PUBLIC
+            "SHELL:-s USE_SDL=2"
+            "SHELL:-s INITIAL_MEMORY=33554432"
+            "SHELL:--shell-file ${CMAKE_SOURCE_DIR}/platform/web/shell.html"
+            "SHELL:--preload-file res"
+        )
+	endif()
 endfunction()
 
 set(CMAKE_MODULE_PATH
@@ -37,7 +51,15 @@ set(CMAKE_MODULE_PATH
 	${CMAKE_MODULE_PATH}
 )
 
-find_package(SDL2 REQUIRED)
+if(EMSCRIPTEN)
+    set(CMAKE_EXECUTABLE_SUFFIX .html)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -gsource-map")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -gsource-map")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -gsource-map")
+else()
+    find_package(SDL2 REQUIRED)
+endif()
+
 
 add_subdirectory(deps)
 
@@ -65,11 +87,20 @@ add_executable(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME}
     ${SDL2_LIBRARY}
-    glad
     glm
     imgui
     neural
 )
+
+if(EMSCRIPTEN)
+    target_link_libraries(${PROJECT_NAME}
+        idbfs.js
+    )
+else()
+    target_link_libraries(${PROJECT_NAME}
+        glad
+    )
+endif()
 
 set_flags(${PROJECT_NAME})
 

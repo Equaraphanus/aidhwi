@@ -50,7 +50,7 @@ static void NeuronTooltip(double bias, const std::vector<double>& weights, std::
     for (size_t input_index = 0; input_index != weights.size(); ++input_index) {
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
-        ImGui::Text("Weight %llu", input_index);
+        ImGui::Text("Weight %zu", input_index);
         ImGui::TableSetColumnIndex(1);
         ImGui::Text("%f", weights[input_index]);
     }
@@ -102,7 +102,7 @@ static void DrawNetworkConnections(const Neural::Network& ann, std::vector<doubl
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + offset * (max_layer_size - inputs_count) * 0.5f);
     for (size_t input_index = 0; input_index != inputs_count; ++input_index) {
         if (inputs) {
-            sprintf_s(name_buffer, "Input %llu", input_index);
+            snprintf(name_buffer, sizeof(name_buffer), "Input %zu", input_index);
             // Space input fields evenly with the same offset as for neurons.
             // This will hopefully become unnecessary as soon as the manual positioning will be implemented.
             ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,
@@ -113,7 +113,7 @@ static void DrawNetworkConnections(const Neural::Network& ann, std::vector<doubl
             ImGui::PopItemWidth();
             ImGui::PopStyleVar();
         } else {
-            sprintf_s(name_buffer, "%llu", input_index);
+            snprintf(name_buffer, sizeof(name_buffer), "%zu", input_index);
             RoundButton(name_buffer, circle_size);
         }
     }
@@ -138,7 +138,7 @@ static void DrawNetworkConnections(const Neural::Network& ann, std::vector<doubl
                 if (outputs)
                     outputs->at(neuron_index) = *neuron_output;
             }
-            sprintf_s(name_buffer, "%llu", neuron_index);
+            snprintf(name_buffer, sizeof(name_buffer), "%zu", neuron_index);
             NeuronWidget(name_buffer, layer_biases[neuron_index], circle_size);
             if (ImGui::IsItemHovered())
                 NeuronTooltip(layer_biases[neuron_index], layer_weights[neuron_index], neuron_output);
@@ -152,7 +152,7 @@ static void DrawNetworkLayers(const Neural::Network& ann) {
     const auto& biases = ann.GetBiases();
 
     for (size_t layer_index = 0; layer_index != weights.size(); ++layer_index) {
-        if (!ImGui::TreeNode((void*)(intptr_t)layer_index, "Layer %llu", layer_index))
+        if (!ImGui::TreeNode((void*)(intptr_t)layer_index, "Layer %zu", layer_index))
             continue;
 
         const auto& layer_weights = weights[layer_index];
@@ -185,7 +185,7 @@ static void DrawNetworkLayers(const Neural::Network& ann) {
         for (size_t neuron_index = 0; neuron_index != layer_biases.size(); ++neuron_index) {
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
-            ImGui::Text("%llu", neuron_index);
+            ImGui::Text("%zu", neuron_index);
             ImGui::TableSetColumnIndex(1);
             ImGui::ColorConvertHSVtoRGB(0.17 * (std::tanh(layer_biases[neuron_index]) + 1), 1.0f, 1.0f, color.x,
                                         color.y, color.z);
@@ -200,12 +200,12 @@ static void DrawNetworkLayers(const Neural::Network& ann) {
             const size_t next_start_index = start_index + columns_count;
 
             ImGui::SameLine(0, 0);
-            sprintf_s(name_buffer, "Weights from %llu", start_index);
+            snprintf(name_buffer, sizeof(name_buffer), "Weights from %zu", start_index);
             ImGui::BeginTable(name_buffer, columns_count,
                               ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_NoHostExtendX,
                               ImVec2(column_width * columns_count, 0));
             for (size_t weight_index = start_index; weight_index != next_start_index; ++weight_index) {
-                sprintf_s(name_buffer, "Weight %llu", weight_index);
+                snprintf(name_buffer, sizeof(name_buffer), "Weight %zu", weight_index);
                 ImGui::TableSetupColumn(name_buffer);
             }
             ImGui::TableHeadersRow();

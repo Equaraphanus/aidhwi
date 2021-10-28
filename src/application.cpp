@@ -6,11 +6,19 @@
 
 #include <backends/imgui_impl_opengl3.h>
 #include <backends/imgui_impl_sdl.h>
-#include <glad/glad.h>
 #include <imgui.h>
 
 #include "inspector.h"
 #include "neural/network.h"
+#include "util/literals.h"
+
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#include <GLES2/gl2.h>
+#include <GLES2/gl2ext.h>
+#else
+#include <glad/glad.h>
+#endif
 
 Application::Application() : m_running(false) {}
 
@@ -27,8 +35,9 @@ Application::~Application() {
 bool Application::Init() {
     // Init SDL
     std::cerr << "Initializing SDL..." << std::endl;
-    if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
+    if (SDL_Init(SDL_INIT_TIMER | SDL_INIT_VIDEO) != 0) {
         std::cerr << "Error: Failed to initialize SDL" << std::endl;
+        std::cerr << SDL_GetError() << std::endl;
         return false;
     }
 
@@ -59,11 +68,15 @@ bool Application::Init() {
     // V-Sync
     SDL_GL_SetSwapInterval(1);
 
+#ifndef __EMSCRIPTEN__
     std::cerr << "Initializing OpenGL..." << std::endl;
     if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress)) {
         std::cerr << "Error: Failed to initialize OpenGL" << std::endl;
         return false;
     }
+#endif
+    std::cerr << glGetString(GL_VERSION) << std::endl;
+    std::cerr << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
 
     glClearColor(0.25f, 0.5f, 0.5f, 1.0f);
 
@@ -72,9 +85,13 @@ bool Application::Init() {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGui_ImplSDL2_InitForOpenGL(m_window, m_context);
-    ImGui_ImplOpenGL3_Init("#version 130");
+    ImGui_ImplOpenGL3_Init("#version 100");
 
     auto& io = ImGui::GetIO();
+
+#ifdef __EMSCRIPTEN__
+    io.IniFilename = "config/imgui.ini";
+#endif
 
     std::cerr << "Loading fonts..." << std::endl;
     io.Fonts->AddFontFromFileTTF("res/fonts/NotoSans-Regular.ttf", 18, NULL, io.Fonts->GetGlyphRangesDefault());
@@ -107,6 +124,17 @@ bool Application::Init() {
 }
 
 void Application::Run() {
+#ifdef __EMSCRIPTEN__
+    auto loop_callback = [](void* arg) -> void {
+        Application& app = *static_cast<Application*>(arg);
+        SDL_Event evt;
+        while (SDL_PollEvent(&evt)) {
+            app.HandleEvent(evt);
+        }
+        app.Render();
+    };
+    emscripten_set_main_loop_arg(loop_callback, this, 0, true);
+#else
     m_running = true;
     while (m_running) {
         SDL_Event evt;
@@ -117,6 +145,7 @@ void Application::Run() {
         }
         Render();
     }
+#endif
 }
 
 void Application::HandleEvent(SDL_Event& evt) {
@@ -154,14 +183,18 @@ void Application::Render() {
     ImGui::NewFrame();
 
     // ImGUI
+    ImGui::SetNextWindowCollapsed(true, ImGuiCond_FirstUseEver);
     ImGui::ShowDemoWindow();
 
+    ImGui::SetNextWindowSize(ImVec2(500, 600), ImGuiCond_FirstUseEver);
     ImGui::Begin("Inspector");
     ImGui::SetNextItemOpen(true, ImGuiCond_Once);
     if (ImGui::CollapsingHeader("Neural network"))
         m_network_editor->Show();
     ImGui::End();
 
+    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_FirstUseEver, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(600, 400), ImGuiCond_FirstUseEver);
     ImGui::Begin("Input demo");
     bool glyph_changed = m_input_view->Show(ImVec2(ImGui::GetContentRegionAvailWidth() - ImGui::GetFontSize() * 12, 0));
     size_t glyph_count = m_input_view->GetGlyphCount();
@@ -194,14 +227,14 @@ void Application::Render() {
         for (size_t y = 0; y != m_glyph_buffer_height; ++y) {
             for (size_t x = 0; x != m_glyph_buffer_width; ++x) {
                 // static constexpr const char* brightness_values[] = {"  ", ".'", "~~", "][", "XX", "WM", "$$"};
-                static constexpr const char* brightness_values[] = {"  ", "\xb0\xb0", "\xb1\xb1", "\xb2\xb2",
-                                                                    "\xdb\xdb"};
+                // static constexpr const char* brightness_values[] = {"  ", "\xb0\xb0", "\xb1\xb1", "\xb2\xb2", "\xdb\xdb"};
+                static constexpr const char* brightness_values[] = {"  ", "`,", "::", "[]", "WM"};
                 static constexpr size_t brightness_levels = sizeof(brightness_values) / sizeof(*brightness_values);
-                std::cerr << brightness_values[std::clamp(
-                    static_cast<size_t>(buffer[y * m_glyph_buffer_width + x] * brightness_levels), 0llu,
+                std::cout << brightness_values[std::clamp(
+                    static_cast<size_t>(buffer[y * m_glyph_buffer_width + x] * brightness_levels), 0_zu,
                     brightness_levels - 1)];
             }
-            std::cerr << std::endl;
+            std::cout << std::endl;
         }
 
         if (wants_feed_to_ann)
