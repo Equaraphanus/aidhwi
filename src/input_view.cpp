@@ -78,7 +78,8 @@ bool InputView::Show(ImVec2 size) {
         if (ImGui::BeginMenu("History")) {
             char buffer[48];
             for (size_t history_index = 0; history_index != m_stroke_history.size(); ++history_index) {
-                snprintf(buffer, sizeof(buffer), "State %zu (%zu strokes)", history_index, m_stroke_history[history_index].size());
+                snprintf(buffer, sizeof(buffer), "State %zu (%zu strokes)", history_index,
+                         m_stroke_history[history_index].size());
                 if (ImGui::MenuItem(buffer, nullptr, history_index <= m_history_position)) {
                     m_history_position = history_index;
                     m_glyph_strokes = m_stroke_history[m_history_position];
@@ -243,7 +244,8 @@ void InputView::DrawGlyphBuffer(size_t index) const {
                                             "layout (location = 0) in vec2 pos;\n"
                                             "uniform vec4 rect;\n"
                                             "void main() {\n"
-                                            "    gl_Position = vec4((pos - rect.xy) / rect.zw * 2.0 - vec2(1.0, -1.0), 0.0, 1.0);\n"
+                                            "    gl_Position = vec4((pos - rect.xy) / rect.zw * 2.0\n"
+                                            "                       - vec2(1.0, -1.0), 0.0, 1.0);\n"
                                             "}";
 #endif
     GLuint vertex_shader_handle = glCreateShader(GL_VERTEX_SHADER);
@@ -460,7 +462,7 @@ void InputView::DrawGlyphBuffer(size_t index) const {
         if (points.size() == 0)
             continue;
 
-#define TRANSLATE_VERTEX(x) (((x) - rect_min) / rect_size * 2.0f - glm::vec2(1.0f, -1.0f))
+#define TRANSLATE_VERTEX(x) ((x - rect_min) / rect_size * 2.0f - glm::vec2(1.0f, -1.0f))
 
         std::vector<glm::vec3> vertices(points.size() * 30);
         glm::vec2 point_a = TRANSLATE_VERTEX(points[0]);

@@ -10,4 +10,4 @@ inline void ConsumeSeparator(std::istream& in) {
         in.ignore();
 }
 
-}
+} // namespace Csv

@@ -13,9 +13,9 @@
 #include "util/literals.h"
 
 #ifdef __EMSCRIPTEN__
-#include <emscripten.h>
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
+#include <emscripten.h>
 #else
 #include <glad/glad.h>
 #endif
@@ -226,8 +226,6 @@ void Application::Render() {
 
         for (size_t y = 0; y != m_glyph_buffer_height; ++y) {
             for (size_t x = 0; x != m_glyph_buffer_width; ++x) {
-                // static constexpr const char* brightness_values[] = {"  ", ".'", "~~", "][", "XX", "WM", "$$"};
-                // static constexpr const char* brightness_values[] = {"  ", "\xb0\xb0", "\xb1\xb1", "\xb2\xb2", "\xdb\xdb"};
                 static constexpr const char* brightness_values[] = {"  ", "`,", "::", "[]", "WM"};
                 static constexpr size_t brightness_levels = sizeof(brightness_values) / sizeof(*brightness_values);
                 std::cout << brightness_values[std::clamp(

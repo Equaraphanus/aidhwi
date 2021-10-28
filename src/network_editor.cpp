@@ -126,7 +126,7 @@ void NetworkEditor::Show() {
 
     if (wants_action) {
         if (!(m_wants_write ? (m_wants_model ? false : SaveLearningExamples(m_dataset_save_path))
-                             : (m_wants_model ? false : LoadLearningExamples(m_dataset_save_path))))
+                            : (m_wants_model ? false : LoadLearningExamples(m_dataset_save_path))))
             ImGui::OpenPopup("Error");
     }
 
