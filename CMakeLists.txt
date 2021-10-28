@@ -5,31 +5,31 @@ project(aidhwi VERSION 1.0)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 function(set_flags target)
-	target_compile_features(${target}
-		PUBLIC
-		cxx_std_17
-	)
-	set_target_properties(${target}
-		PROPERTIES
-		CXX_EXTENSIONS OFF
-	)
-	
-	if(MSVC)
-		target_compile_options(${target}
-			PRIVATE
-			/W4
-			/WX
-		)
-	else()
-		target_compile_options(${target}
-			PRIVATE
-			-Wall
-			-Wextra
-			-pedantic
-			-Wshadow
-			-Wpointer-arith
-		)
-	endif()
+    target_compile_features(${target}
+        PUBLIC
+        cxx_std_17
+    )
+    set_target_properties(${target}
+        PROPERTIES
+        CXX_EXTENSIONS OFF
+    )
+
+    if(MSVC)
+        target_compile_options(${target}
+            PRIVATE
+            /W4
+            /WX
+        )
+    else()
+        target_compile_options(${target}
+            PRIVATE
+            -Wall
+            -Wextra
+            -pedantic
+            -Wshadow
+            -Wpointer-arith
+        )
+    endif()
 
     if(EMSCRIPTEN)
         target_compile_options(${target}
@@ -43,12 +43,12 @@ function(set_flags target)
             "SHELL:--shell-file ${CMAKE_SOURCE_DIR}/platform/web/shell.html"
             "SHELL:--preload-file res"
         )
-	endif()
+    endif()
 endfunction()
 
 set(CMAKE_MODULE_PATH
-	"${CMAKE_SOURCE_DIR}/cmake_modules"
-	${CMAKE_MODULE_PATH}
+    "${CMAKE_SOURCE_DIR}/cmake_modules"
+    ${CMAKE_MODULE_PATH}
 )
 
 if(EMSCRIPTEN)
@@ -64,10 +64,10 @@ endif()
 add_subdirectory(deps)
 
 include_directories(
-	${SDL2_INCLUDE_DIR}
+    ${SDL2_INCLUDE_DIR}
     deps/glad/include
     deps/imgui
-	src
+    src
 )
 
 add_library(neural
@@ -76,8 +76,8 @@ add_library(neural
 set_flags(neural)
 
 add_executable(${PROJECT_NAME}
-	src/main.cpp
-	src/application.cpp
+    src/main.cpp
+    src/application.cpp
     src/inspector.cpp
     src/network_editor.cpp
     src/input_view.cpp
