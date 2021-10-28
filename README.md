@@ -42,7 +42,7 @@ To test the build copy the `res` directory (and all required DLLs if on Windows)
 1. Get Emscripten and its dependencies: [emscripten.org](https://emscripten.org)
 2. Optional: go through the [tutorial](https://emscripten.org/docs/getting_started/Tutorial.html) to check if it is set up properly
 3. Create a build directory (preferably somewhere outside of the project structure) and `cd` to it.
-4. Run `cmake -G Ninja "/path/to/this/repo" "-DCMAKE_TOOLCHAIN_FILE=/path/to/Emscripten.cmake" -B .`.
+4. Run `cmake -G Ninja "/path/to/this/repo" "-DCMAKE_TOOLCHAIN_FILE=/path/to/Emscripten.cmake" -B .`.\
    **Note:** `Emscripten.cmake` can usually be found in `/path/to/emsdk/upstream/emscripten/cmake/Modules/Platform/`.
 5. Run `ninja` to build the generated project.
 
