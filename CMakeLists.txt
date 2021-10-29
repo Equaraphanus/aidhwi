@@ -109,6 +109,16 @@ else()
         PUBLIC
         IMGUI_IMPL_OPENGL_LOADER_GLAD
     )
+
+    add_custom_target(copy-resources ALL
+        DEPENDS ${CMAKE_BINARY_DIR}/res
+    )
+    add_custom_command(
+        OUTPUT ${CMAKE_BINARY_DIR}/res
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/res ${CMAKE_BINARY_DIR}/res
+        DEPENDS ${CMAKE_SOURCE_DIR}/res
+        COMMENT "Copying resources to build directory..."
+    )
 endif()
 
 if (NO_GEOMETRY_SHADERS)
