@@ -93,10 +93,14 @@ target_link_libraries(${PROJECT_NAME}
 )
 
 if(EMSCRIPTEN)
+    set(NO_GEOMETRY_SHADERS ON)
+
     target_link_libraries(${PROJECT_NAME}
         idbfs.js
     )
 else()
+    option(NO_GEOMETRY_SHADERS "Do not use geometry shaders" OFF)
+
     target_link_libraries(${PROJECT_NAME}
         glad
         ${CMAKE_DL_LIBS}
@@ -104,6 +108,13 @@ else()
     target_compile_definitions(${PROJECT_NAME}
         PUBLIC
         IMGUI_IMPL_OPENGL_LOADER_GLAD
+    )
+endif()
+
+if (NO_GEOMETRY_SHADERS)
+    target_compile_definitions(${PROJECT_NAME}
+        PUBLIC
+        NO_GEOMETRY_SHADERS
     )
 endif()
 

@@ -77,6 +77,17 @@ bool Application::Init() {
 #endif
     std::cerr << glGetString(GL_VERSION) << std::endl;
     std::cerr << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
+#ifndef NO_GEOMETRY_SHADERS
+    {
+        GLint gl_major, gl_minor;
+        glGetIntegerv(GL_MAJOR_VERSION, &gl_major);
+        glGetIntegerv(GL_MINOR_VERSION, &gl_minor);
+        if (gl_major * 10 + gl_minor < 33) {
+            std::cerr << "Geometry shaders not supported, try building with -DNO_GEOMETRY_SHADERS=ON" << std::endl;
+            assert(false);
+        }
+    }
+#endif
 
     glClearColor(0.25f, 0.5f, 0.5f, 1.0f);
 

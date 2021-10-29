@@ -8,9 +8,12 @@
 #ifdef __EMSCRIPTEN__
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
-#include <glm/ext/vector_float3.hpp>
 #else
 #include <glad/glad.h>
+#endif
+
+#ifdef NO_GEOMETRY_SHADERS
+#include <glm/ext/vector_float3.hpp>
 #endif
 
 #include <glm/geometric.hpp>
@@ -231,7 +234,7 @@ void InputView::DrawGlyphBuffer(size_t index) const {
 
     GLint success;
 
-#ifdef __EMSCRIPTEN__
+#ifdef NO_GEOMETRY_SHADERS
     static const char* vertex_shader_text = "#version 100\n"
                                             "attribute vec3 pos;\n"
                                             "varying highp float col;\n"
@@ -240,8 +243,8 @@ void InputView::DrawGlyphBuffer(size_t index) const {
                                             "    col = pos.z;\n"
                                             "}";
 #else
-    static const char* vertex_shader_text = "#version 330 core\n"
-                                            "layout (location = 0) in vec2 pos;\n"
+    static const char* vertex_shader_text = "#version 130\n"
+                                            "in vec2 pos;\n"
                                             "uniform vec4 rect;\n"
                                             "void main() {\n"
                                             "    gl_Position = vec4((pos - rect.xy) / rect.zw * 2.0\n"
@@ -261,7 +264,7 @@ void InputView::DrawGlyphBuffer(size_t index) const {
         assert(false);
     }
 
-#ifndef __EMSCRIPTEN__
+#ifndef NO_GEOMETRY_SHADERS
     static const char* geometry_shader_text = "#version 330 core\n"
                                               "layout (lines) in;\n"
                                               "layout (triangle_strip, max_vertices = 16) out;\n"
@@ -362,9 +365,9 @@ void InputView::DrawGlyphBuffer(size_t index) const {
                                               "    gl_FragColor = vec4(col, col, col, 1.0);\n"
                                               "}";
 #else
-    static const char* fragment_shader_text = "#version 330 core\n"
+    static const char* fragment_shader_text = "#version 130\n"
                                               "in float col;\n"
-                                              "layout (location = 0) out float color;\n"
+                                              "out float color;\n"
                                               "void main() {\n"
                                               "    color = col;\n"
                                               "}";
@@ -384,7 +387,7 @@ void InputView::DrawGlyphBuffer(size_t index) const {
 
     GLuint shader_program_id = glCreateProgram();
     glAttachShader(shader_program_id, vertex_shader_handle);
-#ifndef __EMSCRIPTEN__
+#ifndef NO_GEOMETRY_SHADERS
     glAttachShader(shader_program_id, geometry_shader_handle);
 #endif
     glAttachShader(shader_program_id, fragment_shader_handle);
@@ -415,7 +418,7 @@ void InputView::DrawGlyphBuffer(size_t index) const {
     }
     rect_size.y *= -1.0;
 
-#ifndef __EMSCRIPTEN__
+#ifndef NO_GEOMETRY_SHADERS
     glUniform4f(glGetUniformLocation(shader_program_id, "rect"), rect_min.x, rect_min.y, rect_size.x, rect_size.y);
     glUniform1f(glGetUniformLocation(shader_program_id, "thickness"), 1.0f / 16.0f);
 #endif
@@ -442,7 +445,7 @@ void InputView::DrawGlyphBuffer(size_t index) const {
     const GLuint vertex_attrib_index = 0;
     glEnableVertexAttribArray(vertex_attrib_index);
 
-#ifdef __EMSCRIPTEN__
+#ifdef NO_GEOMETRY_SHADERS
 #define VERTEX_ATTRIB_COUNT 3
 #else
 #define VERTEX_ATTRIB_COUNT 2
@@ -452,13 +455,13 @@ void InputView::DrawGlyphBuffer(size_t index) const {
 
 #undef VERTEX_ATTRIB_COUNT
 
-#ifdef __EMSCRIPTEN__
+#ifdef NO_GEOMETRY_SHADERS
     const float thickness = 1.0f / 16.0f;
 #endif
 
     for (auto stroke : glyph.strokes) {
         const auto& points = stroke.get().points;
-#ifdef __EMSCRIPTEN__
+#ifdef NO_GEOMETRY_SHADERS
         if (points.size() == 0)
             continue;
 
@@ -582,7 +585,7 @@ void InputView::QueryGlyphBuffer(size_t index, unsigned buffer_width, unsigned b
 
     GLint success;
 
-#ifdef __EMSCRIPTEN__
+#ifdef NO_GEOMETRY_SHADERS
     static const char* vertex_shader_text = "#version 100\n"
                                             "attribute vec3 pos;\n"
                                             "varying highp float col;\n"
@@ -591,8 +594,8 @@ void InputView::QueryGlyphBuffer(size_t index, unsigned buffer_width, unsigned b
                                             "    col = pos.z;\n"
                                             "}";
 #else
-    static const char* vertex_shader_text = "#version 330 core\n"
-                                            "layout (location = 0) in vec2 pos;\n"
+    static const char* vertex_shader_text = "#version 130\n"
+                                            "in vec2 pos;\n"
                                             "uniform vec4 rect;\n"
                                             "void main() {\n"
                                             "    gl_Position = vec4((pos - rect.xy) / rect.zw * 2.0 - 1.0, 0.0, 1.0);\n"
@@ -611,7 +614,7 @@ void InputView::QueryGlyphBuffer(size_t index, unsigned buffer_width, unsigned b
         assert(false);
     }
 
-#ifndef __EMSCRIPTEN__
+#ifndef NO_GEOMETRY_SHADERS
     static const char* geometry_shader_text = "#version 330 core\n"
                                               "layout (lines) in;\n"
                                               "layout (triangle_strip, max_vertices = 16) out;\n"
@@ -731,9 +734,9 @@ void InputView::QueryGlyphBuffer(size_t index, unsigned buffer_width, unsigned b
                                               "    gl_FragColor = float_to_rgba(col);\n"
                                               "}";
 #else
-    static const char* fragment_shader_text = "#version 330 core\n"
+    static const char* fragment_shader_text = "#version 130\n"
                                               "in float col;\n"
-                                              "layout (location = 0) out float color;\n"
+                                              "out float color;\n"
                                               "void main() {\n"
                                               "    color = col;\n"
                                               "}";
@@ -753,7 +756,7 @@ void InputView::QueryGlyphBuffer(size_t index, unsigned buffer_width, unsigned b
 
     GLuint shader_program_id = glCreateProgram();
     glAttachShader(shader_program_id, vertex_shader_handle);
-#ifndef __EMSCRIPTEN__
+#ifndef NO_GEOMETRY_SHADERS
     glAttachShader(shader_program_id, geometry_shader_handle);
 #endif
     glAttachShader(shader_program_id, fragment_shader_handle);
@@ -790,7 +793,7 @@ void InputView::QueryGlyphBuffer(size_t index, unsigned buffer_width, unsigned b
     rect_size.y *= buffer_height + 2;
 
     glViewport(0, 0, buffer_width, buffer_height);
-#ifndef __EMSCRIPTEN__
+#ifndef NO_GEOMETRY_SHADERS
     glUniform4f(glGetUniformLocation(shader_program_id, "rect"), rect_min.x, rect_min.y, rect_size.x, rect_size.y);
     glUniform1f(glGetUniformLocation(shader_program_id, "thickness"), 2.0f / buffer_width);
 #endif
@@ -817,7 +820,7 @@ void InputView::QueryGlyphBuffer(size_t index, unsigned buffer_width, unsigned b
     const GLuint vertex_attrib_index = 0;
     glEnableVertexAttribArray(vertex_attrib_index);
 
-#ifdef __EMSCRIPTEN__
+#ifdef NO_GEOMETRY_SHADERS
     constexpr int vertex_components = 3;
 #else
     constexpr int vertex_components = 2;
@@ -825,13 +828,13 @@ void InputView::QueryGlyphBuffer(size_t index, unsigned buffer_width, unsigned b
 
     glVertexAttribPointer(vertex_attrib_index, vertex_components, GL_FLOAT, GL_FALSE, 0, nullptr);
 
-#ifdef __EMSCRIPTEN__
+#ifdef NO_GEOMETRY_SHADERS
     const float thickness = 2.0f / buffer_width;
 #endif
 
     for (auto stroke : glyph.strokes) {
         const auto& points = stroke.get().points;
-#ifdef __EMSCRIPTEN__
+#ifdef NO_GEOMETRY_SHADERS
         if (points.size() == 0)
             continue;
 
